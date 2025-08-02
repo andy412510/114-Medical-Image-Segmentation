@@ -176,6 +176,4 @@ https://ko-fi.com/jundewu
 EfficientSAM 是基於 Meta 的 Segment Anything Model (SAM) 進行改良與優化，專注於醫學影像分割任務，提升模型效率與精度。  
 所有訓練與推論流程均以 EfficientSAM 為核心。
 
-## 讚
-
 
