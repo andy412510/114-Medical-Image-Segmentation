@@ -170,6 +170,11 @@ Welcome to open issues if you meet any problem. It would be appreciated if you c
 ## Buy Me A Coffee 🥤😉
 https://ko-fi.com/jundewu
 
+## 專案模型說明
+
+本專案架設及開發以 **EfficientSAM** 為主要模型。  
+EfficientSAM 是基於 Meta 的 Segment Anything Model (SAM) 進行改良與優化，專注於醫學影像分割任務，提升模型效率與精度。  
+所有訓練與推論流程均以 EfficientSAM 為核心。
 
 
 
