@@ -171,9 +171,7 @@ Welcome to open issues if you meet any problem. It would be appreciated if you c
 https://ko-fi.com/jundewu
 
 ## 專案模型說明
-
-本專案架設及開發以 **EfficientSAM** 為主要模型。  
-EfficientSAM 是基於 Meta 的 Segment Anything Model (SAM) 進行改良與優化，專注於醫學影像分割任務，提升模型效率與精度。  
-所有訓練與推論流程均以 EfficientSAM 為核心。
-
-
+7/31~8/6 張睿安、湯景翔、曾澤祐 遇到問題:
+Q1 張睿安:版本問題的關係導致環境無法支援  (已解決
+Q2 曾澤祐:執行時因為args.vis 的設定為None 導致無法控制「每隔幾張要視覺化」  (已解決
+Q3 湯景翔:記憶體需求太大，導致無法正常運行(已解決
