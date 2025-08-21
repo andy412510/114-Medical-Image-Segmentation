@@ -38,7 +38,7 @@ def parse_args():
     parser.add_argument('-sim_weights', type=str, default = 0, help='the weights sim')
     parser.add_argument('-distributed', default='none' ,type=str,help='multi GPU ids to use')
     parser.add_argument('-dataset', default='isic' ,type=str,help='dataset name')
-    parser.add_argument('-sam_ckpt', default=None , help='sam checkpoint address')
+    parser.add_argument('-sam_ckpt', default='/home/user/114_Medical_Image_Segmentation/checkpoint/sam/sam_vit_b_01ec64.pth' , help='sam checkpoint address')
     parser.add_argument('-thd', type=bool, default=False , help='3d or not')
     parser.add_argument('-chunk', type=int, default=None , help='crop volume depth')
     parser.add_argument('-num_sample', type=int, default=4 , help='sample pos and neg')
@@ -49,7 +49,7 @@ def parse_args():
     parser.add_argument(
     '-data_path',
     type=str,
-    default='../data',
+    default='/home/user/Datasets/ISBI2016_ISIC_Part1',
     help='The path of segmentation data')
     # '../dataset/RIGA/DiscRegion'
     # '../dataset/ISIC'
