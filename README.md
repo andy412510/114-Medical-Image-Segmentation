@@ -194,3 +194,11 @@ a.	ind 是某個迴圈中的「當前索引值」或「影像編號」
 b.	args.vis 是一個參數，通常控制 「每幾張圖要視覺化（或儲存、印出）一次」
 c.	% 是 取餘數運算，用來做「每隔 N 次」的條件判斷
 4.將Anaconda Prompt的版本從3.13調降至3.10
+
+## 11/30最新的進度(3D腹部)
+
+1.已經成功創建新的JSON檔
+2.3D資料集可以正常下載(RawData)
+3.使用Anaconda環境執行
+4.權重:Abdominal_Left_Kidney_sam_128，Abdominal_Right_Kidney_sam_128
+5.image-size 1024 -b 2 chunk 96 調整成 image-size  256 -b 1  -chunk 16，能然有記憶體不足的問題
