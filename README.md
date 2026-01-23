@@ -32,6 +32,7 @@ c.	% 是 取餘數運算，用來做「每隔 N 次」的條件判斷
 5.image-size 1024 -b 2 chunk 96 調整成 image-size  256 -b 1  -chunk 16，能然有記憶體不足的問題
 
 
+## 114-1 遇到的問題與解決方式
 
 
 <h1 align="center">● Medical SAM Adapter</h1>
