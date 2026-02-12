@@ -186,8 +186,8 @@ def validation_sam(args, val_loader, epoch, net: nn.Module, clean_dir=True):
             cur_bsz = imgsw.shape[0]
             
             # Force generate prompts
-            imgsw, ptw, masksw, generated_labels_w = generate_click_prompt(imgsw, masksw)
-            point_labels = generated_labels_w
+            imgsw, ptw, masksw = generate_click_prompt(imgsw, masksw)
+            point_labels = masksw
             name = pack['image_meta_dict']['filename_or_obj']
             
             buoy = 0
@@ -201,14 +201,14 @@ def validation_sam(args, val_loader, epoch, net: nn.Module, clean_dir=True):
 
                 imgs = imgsw[...,buoy:buoy + evl_ch]
                 masks = masksw[...,buoy:buoy + evl_ch]
-                batch_labels = generated_labels_w[:, buoy: buoy + evl_ch] if args.thd else point_labels
+                batch_labels = point_labels if args.thd else point_labels
                 buoy += evl_ch
 
                 if args.thd:
                     pt = rearrange(pt, 'b n d -> (b d) n')
                     imgs = rearrange(imgs, 'b c h w d -> (b d) c h w ')
                     masks = rearrange(masks, 'b c h w d -> (b d) c h w ')
-                    labels_torch = rearrange(batch_labels, 'b d -> (b d)')
+                    labels_torch = rearrange(batch_labels, 'b c d h w -> (b c d h w)')
                     imgs = imgs.repeat(1,3,1,1)
                     imgs = torchvision.transforms.Resize((args.image_size,args.image_size))(imgs)
                     masks = torchvision.transforms.Resize((args.out_size,args.out_size))(masks)
