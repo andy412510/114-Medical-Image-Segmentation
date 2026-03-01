@@ -33,6 +33,22 @@ c.	% 是 取餘數運算，用來做「每隔 N 次」的條件判斷
 
 
 ## 114-1 遇到的問題與解決方式
+### 1) NIfTI / nii.gz 讀取錯誤或 shape 對不上
+**症狀**
+- `RuntimeError: shape mismatch`
+- 影像與標註的 size / spacing 對不上，loss 直接爆或 dice 為 0
+
+**原因**
+- 影像與標註沒有使用同樣的 resample / crop 流程
+- 只處理 image 沒處理 label（label 的插值方法也要不同）
+
+**解法**
+- 確保 image & label **同一套 transform**（除了插值）
+- image 用 linear/bilinear
+- label 用 nearest neighbor
+- 訓練前抽樣檢查（建議至少 5 個 case）：
+- `image.shape == label.shape`
+- `unique(label)` 是否只含合法類別（例如 0/1/2/3）
 
 
 <h1 align="center">● Medical SAM Adapter</h1>
