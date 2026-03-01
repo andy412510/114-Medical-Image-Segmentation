@@ -34,7 +34,7 @@ c.	% 是 取餘數運算，用來做「每隔 N 次」的條件判斷
 
 ## 114-1 遇到的問題與解決方式
 ### 1) NIfTI / nii.gz 讀取錯誤或 shape 對不上
-**症狀**
+**問題**
 - `RuntimeError: shape mismatch`
 - 影像與標註的 size / spacing 對不上，loss 直接爆或 dice 為 0
 
@@ -46,10 +46,42 @@ c.	% 是 取餘數運算，用來做「每隔 N 次」的條件判斷
 - 確保 image & label **同一套 transform**（除了插值）
 - image 用 linear/bilinear
 - label 用 nearest neighbor
-- 訓練前抽樣檢查（建議至少 5 個 case）：
-- `image.shape == label.shape`
-- `unique(label)` 是否只含合法類別（例如 0/1/2/3）
+- 訓練前抽樣檢查
 
+### 2) Training 卡住不動
+**問題**
+- epoch 不前進、terminal 沒報錯但也沒輸出
+- GPU 使用率掉到 0 或一直低
+- 常見在 `num_workers>0` 時發生
+
+**原因**
+- DataLoader 多進程在 Windows / 某些環境容易 deadlock
+- worker 讀檔太慢或某筆資料卡在解碼
+- 使用 `pin_memory=True` / `persistent_workers=True` 組合時不穩
+
+**解法**
+- 先用最保守設定確認能跑：
+- `num_workers=0`
+- `pin_memory=False`
+- `persistent_workers=False`
+- 確認後再逐步加回去（例如 num_workers 0→2→4）
+- 加入「每 N step 印一次」的 log，定位卡在哪個 batch / 哪個 case
+- 若是某筆資料壞掉：把該 case ID 記錄下來並先排除
+
+### 3) Loss 正常但 Dice/IoU 幾乎不動
+**問題**
+- loss 有下降，但 validation dice 長期接近 0
+- 模型輸出幾乎都是 background
+
+**原因**
+- label 類別 mapping 錯（例如把 tumor/cyst 全變 0）
+- normalize / clip HU 不合理導致輸入分佈怪
+- augmentation 太激進
+
+**解法**
+- 先關掉大部分 augmentation，確定「基本 pipeline」能學到
+- 檢查 原圖切片 + GT mask + pred mask（至少 10 張）
+- 檢查 label 值域
 
 <h1 align="center">● Medical SAM Adapter</h1>
 
