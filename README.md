@@ -2,8 +2,8 @@
 - 主要是改 function.py 與 utils.py(只改維度) 皆已更新至github上
 - kits23的資料集請依連結教學指示下載:https://github.com/neheller/kits23/blob/main/README.md
 
-**tain.py指令:**/n
-python3 train.py \
+**tain.py指令:**
+- python3 train.py \
 -net sam \
 -mod sam_adpt \
 -exp_name kits23_Med-SA \
