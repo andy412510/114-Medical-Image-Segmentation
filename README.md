@@ -1,6 +1,6 @@
 ## 114-1 kit23 問題紀錄(Jade)
-主要是改 function.py 與 utils.py(只改維度) 皆已更新至github上
-kits23的資料集請依連結教學指示下載:https://github.com/neheller/kits23/blob/main/README.md
+- 主要是改 function.py 與 utils.py(只改維度) 皆已更新至github上
+- kits23的資料集請依連結教學指示下載:https://github.com/neheller/kits23/blob/main/README.md
 
 **tain.py指令:**
 python3 train.py \
@@ -18,9 +18,6 @@ python3 train.py \
 -num_sample 4 \
 -vis 50
 
-
-
- 
 ### 1) train_sam() 的修改 (function.py)
 - Loss function 改動: 原本程式會看 args.thd 來決定 loss,thd=True 用 DiceCELoss，thd=False 用 BCEWithLogitsLoss。後來因為 KiTS23 打算做2元 segmentation 任務，重點更在意整體分割區域有沒有切準，所以改成統一使用 DiceCELoss，讓訓練方向更接近最後的 Dice 表現。
 - Mask 二值化: 這裡將 masks 強制二值化，將所有標註區域統一視為正類，其餘視為背景。也就是說，原本可能包含多個標籤值的 mask，在這裡都會被轉成 binary segmentation 的形式，讓訓練流程更一致。
