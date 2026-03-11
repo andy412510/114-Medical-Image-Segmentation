@@ -105,3 +105,6 @@ def create_kits_for_msa():
 
 if __name__ == "__main__":
     create_kits_for_msa()
+
+
+#將驗證集直接固定為最後 10 筆資料，缺乏隨機性，可能造成訓練與驗證分布不平均；若某些 case 缺少 imaging.nii.gz 或 segmentation.nii.gz，程式只會直接跳過，卻不會記錄缺少哪些案例，後續不容易追查資料筆數為何不足；
