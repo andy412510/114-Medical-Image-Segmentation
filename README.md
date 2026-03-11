@@ -1,20 +1,20 @@
 ## 114-1 kit23 問題紀錄
 
 ### 1) train_sam() 的修改
-- Loss function 改動:原本程式會看 args.thd 來決定 loss：thd=True 用 DiceCELoss，thd=False 用 BCEWithLogitsLoss。後來因為 KiTS23 是 segmentation 任務，重點更在意整體分割區域有沒有切準，所以改成統一使用 DiceCELoss，讓訓練方向更接近最後的 Dice 表現。
-- Mask 二值化:這裡將 masks 強制二值化，將所有標註區域統一視為正類，其餘視為背景。也就是說，原本可能包含多個標籤值的 mask，在這裡都會被轉成 binary segmentation 的形式，讓訓練流程更一致。
-- Prompt 生成邏輯改動:把原本依賴資料集提供 pt 和 p_label 的方式，改成統一由 generate_click_prompt() 自動產生 prompt 與對應標籤。這樣可以讓 train 和 validation 的 prompt 來源一致，實驗流程也比較穩定。
+- Loss function 改動: 原本程式會看 args.thd 來決定 loss：thd=True 用 DiceCELoss，thd=False 用 BCEWithLogitsLoss。後來因為 KiTS23 是 segmentation 任務，重點更在意整體分割區域有沒有切準，所以改成統一使用 DiceCELoss，讓訓練方向更接近最後的 Dice 表現。
+- Mask 二值化: 這裡將 masks 強制二值化，將所有標註區域統一視為正類，其餘視為背景。也就是說，原本可能包含多個標籤值的 mask，在這裡都會被轉成 binary segmentation 的形式，讓訓練流程更一致。
+- Prompt 生成邏輯改動: 把原本依賴資料集提供 pt 和 p_label 的方式，改成統一由 generate_click_prompt() 自動產生 prompt 與對應標籤，可以讓 train 和 validation 的 prompt 來源一致，實驗流程也比較穩定。
 - 解決 resize 後 prompt 座標與影像位置不一致的問題
 - Prompt 格式處理改動: 這裡把 prompt 座標格式整理成模型需要的輸入形式，並明確將座標由原本的 (y, x) 轉成 (x, y)。另外也補上維度處理，避免只有單一點時形狀不符合模型輸入要求。
 - 視覺化呼叫修改可以同時顯示點的位置與點的類型
 
-### 2)validation_sam() 的修改
+### 2) validation_sam() 的修改
+- 驗證統計方式重寫: 改為手動累加 (loss, IoU, Dice, processed slices 數量, noise filter 次數)，直接掌控每張切片的評估。
+- Validation mask 二值化: 與訓練流程一致，統一為 binary segmentation。
+- 驗證 prompt 改為強制生成
 
 
-
-
-
-
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ## 7/31~8/6遇到的問題以及解決方法
 
 遇到問題: 
