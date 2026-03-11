@@ -1,13 +1,12 @@
 ## 114-1 kit23 問題紀錄
 
 ### 1) train_sam() 的修改
-a. Loss function 改動
-b. Mask 二值化
-c. Prompt 生成邏輯改動
-d. 保留 generate_click_prompt() 真正產生的 label
-e. 解決 resize 後 prompt 座標與影像位置不一致的問題
-f. Prompt 格式處理改動: 將座標格式由 (y, x) 轉換為 (x, y)
-g. 視覺化呼叫修改可以同時顯示點的位置與點的類型
+- a. Loss function 改動
+- b. Mask 二值化
+- c. Prompt 生成邏輯改動
+- d. 解決 resize 後 prompt 座標與影像位置不一致的問題
+- e. Prompt 格式處理改動: 將座標格式由 (y, x) 轉換為 (x, y)
+- f. 視覺化呼叫修改可以同時顯示點的位置與點的類型
 
 
 
