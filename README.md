@@ -1,4 +1,16 @@
 ## 114-1 kit23遇到的問題與解決方式
+
+### 1) train_sam() 的修改
+
+**Loss function 改動**
+
+
+
+
+
+
+
+
 ### 1) NIfTI / nii.gz 讀取錯誤或 shape 對不上
 **問題**
 - `RuntimeError: shape mismatch`
