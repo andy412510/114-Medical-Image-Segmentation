@@ -6,7 +6,7 @@
 - python3 train.py \
 -net sam \
 -mod sam_adpt \
--exp_name kits23_Med-SA \
+-exp_name kits23_Med-SA_train \
 -encoder vit_b \
 -sam_ckpt ./checkpoint/sam/sam_vit_b_01ec64.pth \
 -image_size 1024 \
