@@ -419,11 +419,20 @@ def debug_dice_visualization(origin_img, pred_prob, true_mask, save_path, thresh
     
     draw_legend = ImageDraw.Draw(new_img)
     
-    try:
-        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf", font_size)
-    except Exception:
-        font = ImageFont.load_default()
-        print("Warning: fallback font not found, using default font.")
+              try:
+                  font = ImageFont.truetype(
+                      "/usr/share/fonts/truetype/liberation/LiberationSansNarrow-Regular.ttf",
+                      font_size
+                  )
+              except Exception:
+                  try:
+                      font = ImageFont.truetype(
+                          "/usr/share/fonts/truetype/dejavu/DejaVuSansCondensed.ttf",
+                          font_size
+                      )
+                  except Exception:
+                      font = ImageFont.load_default()
+                      print("Warning: fallback font not found, using default font.")
 
     items = [
         ("TP (Hit)", (0, 255, 0)),
