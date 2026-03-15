@@ -3,20 +3,7 @@
 - kits23的資料集請依連結教學指示下載:https://github.com/neheller/kits23/blob/main/README.md
 
 **tain.py指令:**
-- python3 train.py \
--net sam \
--mod sam_adpt \
--exp_name kits23_Med-SA_train \
--encoder vit_b \
--sam_ckpt ./checkpoint/sam/sam_vit_b_01ec64.pth \
--image_size 1024 \
--b 2 \
--dataset kits \
--thd False \
--chunk 32 \
--data_path ../dataset/KiTS23_for_MSA \
--num_sample 4 \
--vis 50
+python3 train.py -net sam -mod sam_adpt -exp_name kits23_Med-SA_train_EPOCH_500 -encoder vit_b -sam_ckpt ./checkpoint/sam/sam_vit_b_01ec64.pth -image_size 1024 -b 2 -dataset kits -thd False -chunk 32 -data_path ../dataset/KiTS23_for_MSA -num_sample 4 -vis 50
 
 ### 1) train_sam() 的修改 (function.py)
 - Loss function 改動: 原本程式會看 args.thd 來決定 loss,thd=True 用 DiceCELoss，thd=False 用 BCEWithLogitsLoss。後來因為 KiTS23 打算做2元 segmentation 任務，重點更在意整體分割區域有沒有切準，所以改成統一使用 DiceCELoss，讓訓練方向更接近最後的 Dice 表現。
