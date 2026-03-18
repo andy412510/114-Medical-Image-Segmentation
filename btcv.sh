@@ -17,14 +17,11 @@ python train.py \
     -mod sam_adpt \
     -exp_name msa-3d-sam-btcv \
     -lr 0.0003 \
-    -val_freq 1 \
-    -vis 1 \
     -sam_ckpt ./checkpoint/sam/efficient_sam_vitt.pt \
-    -image_size 256 \
-    -b 1 \
+    -image_size 1024 \
+    -b 2 \
     -dataset decathlon \
     -thd True \
-    -chunk 2 \
+    -chunk  2\
     -data_path ../data \
-    -num_sample 4
 echo "訓練任務已結束"

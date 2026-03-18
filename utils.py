@@ -1,3 +1,4 @@
+
 """ helper function
 
 author junde
@@ -140,7 +141,6 @@ def get_decath_loader(args):
                 keys=["image"],
                 a_min=-175,
                 a_max=250,
-                
                 b_min=0.0,
                 b_max=1.0,
                 clip=True,
@@ -1237,4 +1237,3 @@ def random_box(multi_rater):
     y_max = random.choice(np.arange(y_max-10,y_max+11))
 
     return x_min, x_max, y_min, y_max
-
