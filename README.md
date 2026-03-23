@@ -21,7 +21,6 @@ python val.py   -net sam   -mod sam_adpt   -dataset kits   -sam_ckpt ./checkpoin
 - Validation mask 二值化: 與訓練流程一致，統一為 binary segmentation。
 - 驗證 prompt 改為強制生成: 保持 train / validation prompt 邏輯一致。
 - 新增 batch_labels 對應 chunk: 在 chunk 驗證時，正確切出目前區間所對應的 prompt labels。
-- PS:kits23每個case共有512張切片，我的作法是將整個 volume 分成 16 個 chunk，每次處理 32 張
 - 驗證端新增 resize 與 prompt 縮放: 確保驗證時 prompt 座標不偏移。
 - 改用手動逐張 slice 計算 Dice / IoU (intersection, total area, union area, dice,iou)
 - 新增 Noise Filter: 若預測前景面積小於 50，視為噪聲，直接將該預測清空，避免噪聲影響 Dice / IoU 的值，降低 segmentation 雜訊。
