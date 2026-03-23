@@ -1,5 +1,5 @@
 ## 114-1 kit23 問題紀錄(Jade)
-- 主要是改 function.py 與 utils.py 皆已更新至github上
+- 主要是改 function.py 與 utils.py 、kits.py皆已更新至github上
 - kits23的資料集請依連結教學指示下載:https://github.com/neheller/kits23/blob/main/README.md
 
 **tain.py指令:**
