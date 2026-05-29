@@ -11,17 +11,19 @@ export CUDA_VISIBLE_DEVICES=0
 export MONAI_VAR_MAX_SEED=2147483647
 
 # 4. 執行訓練指令
-# 注意：我移除了 -seed 2026 參數，改由環境變數控制，看看是否能避開 Compose 初始化的衝突
 python train.py \
     -net sam \
     -mod sam_adpt \
-    -exp_name msa-3d-sam-btcv \
-    -lr 0.0003 \
-    -sam_ckpt ./checkpoint/sam/efficient_sam_vitt.pt \
+    -exp_name msa-btcv-rkid-sagittal \
+    -sam_ckpt ./checkpoint/sam/sam_vit_b_01ec64.pth \
     -image_size 1024 \
+    -out_size 256 \
     -b 2 \
-    -dataset decathlon \
-    -thd True \
-    -chunk  2\
-    -data_path ../data \
+    -vis 5 \
+    -dataset btcv \
+    -data_path /home/user412771213/folder/data \
+    -weights /home/user412771213/folder/114-Medical-Image-Segmentation/logs/msa-btcv-rkid-axial_2026_05_19_15_16_49/Model/best_dice_checkpoint.pth\
+    -num_sample 4 \
+    -axis sagittal \
+
 echo "訓練任務已結束"

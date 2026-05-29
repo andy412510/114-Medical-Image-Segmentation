@@ -1,176 +1,106 @@
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# All rights reserved.
+#!/usr/bin/env  python3
 
-# This source code is licensed under the license found in the
-# LICENSE file in the root directory of this source tree.
+""" valuate network using pytorch
+    Junde Wu
+"""
 
-import math
-from typing import List, Optional, Tuple, Type
-
+import os
+import sys
+import argparse
+from datetime import datetime
+from collections import OrderedDict
+import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+import torch.optim as optim
+from sklearn.metrics import roc_auc_score, accuracy_score,confusion_matrix
+import torchvision
+import torchvision.transforms as transforms
+from skimage import io
+from torch.utils.data import DataLoader
+#from dataset import *
+from torch.autograd import Variable
+from PIL import Image
+from tensorboardX import SummaryWriter
+#from models.discriminatorlayer import discriminator
+from dataset import *
+from conf import settings
+import time
+import cfg
+from tqdm import tqdm
+from torch.utils.data import DataLoader, random_split
+from utils import *
+import function
 
-from ..common import LayerNorm2d
-from ..ImageEncoder import AdaloraBlock, AdapterBlock, Block, LoraBlock
 
+def main():
+    args = cfg.parse_args()
+    if args.dataset == 'refuge' or args.dataset == 'refuge2':
+        args.data_path = '../dataset'
 
-class PatchEmbed(nn.Module):
-    """2D Image to Patch Embedding"""
+    GPUdevice = torch.device('cuda', args.gpu_device)
 
-    def __init__(
-        self,
-        img_size,
-        patch_size,
-        in_chans,
-        embed_dim,
-    ):
-        super().__init__()
-        self.proj = nn.Conv2d(
-            in_chans,
-            embed_dim,
-            kernel_size=(patch_size, patch_size),
-            stride=(patch_size, patch_size),
-            bias=True,
-        )
+    net = get_network(args, args.net, use_gpu=args.gpu, gpu_device=GPUdevice, distribution = args.distributed)
 
-    def forward(self, x):
-        B, C, H, W = x.shape
-        x = self.proj(x)
-        return x
+    '''load pretrained model'''
+    assert args.weights != 0
+    print(f'=> resuming from {args.weights}')
+    assert os.path.exists(args.weights)
+    checkpoint_file = os.path.join(args.weights)
+    assert os.path.exists(checkpoint_file)
+    loc = 'cuda:{}'.format(args.gpu_device)
+    
+    # 載入權重
+    checkpoint = torch.load(checkpoint_file, map_location=loc)
+    
+    # --- 修改部分：防呆載入邏輯 ---
+    # 使用 .get 避免 KeyError
+    start_epoch = checkpoint.get('epoch', 0)
+    best_tol = checkpoint.get('best_tol', 1e4)
 
-@torch.jit.export
-def get_abs_pos(
-    abs_pos: torch.Tensor, has_cls_token: bool, hw: List[int]
-) -> torch.Tensor:
-    """
-    Calculate absolute positional embeddings. If needed, resize embeddings and remove cls_token
-        dimension for the original embeddings.
-    Args:
-        abs_pos (Tensor): absolute positional embeddings with (1, num_position, C).
-        has_cls_token (bool): If true, has 1 embedding in abs_pos for cls token.
-        hw (Tuple): size of input image tokens.
-
-    Returns:
-        Absolute positional embeddings after processing with shape (1, H, W, C)
-    """
-    h = hw[0]
-    w = hw[1]
-    if has_cls_token:
-        abs_pos = abs_pos[:, 1:]
-    xy_num = abs_pos.shape[1]
-    size = int(math.sqrt(xy_num))
-    assert size * size == xy_num
-
-    if size != h or size != w:
-        new_abs_pos = F.interpolate(
-            abs_pos.reshape(1, size, size, -1).permute(0, 3, 1, 2),
-            size=(h, w),
-            mode="bicubic",
-            align_corners=False,
-        )
-        return new_abs_pos.permute(0, 2, 3, 1)
+    # 判斷是「完整快照」還是「純權重字典」
+    if isinstance(checkpoint, dict) and 'state_dict' in checkpoint:
+        state_dict = checkpoint['state_dict']
     else:
-        return abs_pos.reshape(1, h, w, -1)
+        state_dict = checkpoint
+    # ----------------------------
 
+    if args.distributed != 'none':
+        from collections import OrderedDict
+        new_state_dict = OrderedDict()
+        for k, v in state_dict.items():
+            # name = k[7:] # remove `module.`
+            name = 'module.' + k
+            new_state_dict[name] = v
+        # load params
+    else:
+        new_state_dict = state_dict
 
-# Image encoder for efficient SAM.
-class ImageEncoderViT(nn.Module):
-    def __init__(
-        self,
-        args,
-        img_size: int,
-        patch_size: int,
-        in_chans: int,
-        patch_embed_dim: int,
-        normalization_type: str,
-        depth: int,
-        num_heads: int,
-        mlp_ratio: float,
-        neck_dims: List[int],
-        act_layer: Type[nn.Module],
-    ) -> None:
-        """
-        Args:
-            img_size (int): Input image size.
-            patch_size (int): Patch size.
-            in_chans (int): Number of input image channels.
-            patch_embed_dim (int): Patch embedding dimension.
-            depth (int): Depth of ViT.
-            num_heads (int): Number of attention heads in each ViT block.
-            mlp_ratio (float): Ratio of mlp hidden dim to embedding dim.
-            act_layer (nn.Module): Activation layer.
-        """
-        super().__init__()
+    # 載入模型參數
+    net.load_state_dict(new_state_dict)
+    print(f'=> Successfully loaded checkpoint from {args.weights} (epoch {start_epoch})')
 
-        self.args = args
-        self.img_size = img_size
-        self.image_embedding_size = img_size // ((patch_size if patch_size > 0 else 1))
-        self.transformer_output_dim = ([patch_embed_dim] + neck_dims)[-1]
-        self.pretrain_use_cls_token = True
-        pretrain_img_size = 224
-        self.patch_embed = PatchEmbed(img_size, patch_size, in_chans, patch_embed_dim)
-        # Initialize absolute positional embedding with pretrain image size.
-        num_patches = (pretrain_img_size // patch_size) * (
-            pretrain_img_size // patch_size
-        )
-        num_positions = num_patches + 1
-        self.pos_embed = nn.Parameter(torch.zeros(1, num_positions, patch_embed_dim))
+    args.path_helper = set_log_dir('logs', args.exp_name)
+    logger = create_logger(args.path_helper['log_path'])
+    logger.info(args)
 
-        self.blocks = nn.ModuleList()
-        if args.mod == 'sam_adpt':
-            block_class = AdapterBlock 
-        elif args.mod == 'sam_lora':
-            block_class = LoraBlock 
-        elif args.mod == 'sam_adalora':
-            block_class = AdaloraBlock
+    '''segmentation data'''
+    nice_train_loader, nice_test_loader = get_dataloader(args)
+
+    '''begain valuation'''
+    best_acc = 0.0
+    best_tol = 1e4
+
+    if args.mod == 'sam_adpt':
+        net.eval()
+
+        if args.dataset != 'REFUGE':
+            tol, (eiou, edice) = function.validation_sam(args, nice_test_loader, start_epoch, net)
+            logger.info(f'Total score: {tol}, IOU: {eiou}, DICE: {edice} || @ epoch {start_epoch}.')
         else:
-            block_class = Block 
+            tol, (eiou_cup, eiou_disc, edice_cup, edice_disc) = function.validation_sam(args, nice_test_loader, start_epoch, net)
+            logger.info(f'Total score: {tol}, IOU_CUP: {eiou_cup}, IOU_DISC: {eiou_disc}, DICE_CUP: {edice_cup}, DICE_DISC: {edice_disc} || @ epoch {start_epoch}.')
 
-        for i in range(depth):
-            vit_block = block_class(
-                args = self.args,
-                dim=patch_embed_dim,
-                num_heads=num_heads,
-                use_rel_pos=True,
-                mlp_ratio=mlp_ratio,
-                input_size=(img_size // patch_size, img_size // patch_size),
-            )
-            self.blocks.append(vit_block)
-        
-        self.neck = nn.Sequential(
-            nn.Conv2d(
-                patch_embed_dim,
-                neck_dims[0],
-                kernel_size=1,
-                bias=False,
-            ),
-            LayerNorm2d(neck_dims[0]),
-            nn.Conv2d(
-                neck_dims[0],
-                neck_dims[0],
-                kernel_size=3,
-                padding=1,
-                bias=False,
-            ),
-            LayerNorm2d(neck_dims[0]),
-        )
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        assert (
-            x.shape[2] == self.img_size and x.shape[3] == self.img_size
-        ), "input image size must match self.img_size"
-        x = self.patch_embed(x)
-        # B C H W -> B H W C
-        x = x.permute(0, 2, 3, 1)
-        x = x + get_abs_pos(
-            self.pos_embed, self.pretrain_use_cls_token, [x.shape[1], x.shape[2]]
-        )
-        num_patches = x.shape[1]
-        assert x.shape[2] == num_patches
-        # x = x.reshape(x.shape[0], num_patches * num_patches, x.shape[3])
-        for blk in self.blocks:
-            x = blk(x)
-        # x = x.reshape(x.shape[0], num_patches, num_patches, x.shape[2])
-        x = self.neck(x.permute(0, 3, 1, 2))
-        return x
+if __name__ == '__main__':
+    main()

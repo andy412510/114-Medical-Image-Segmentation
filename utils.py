@@ -962,10 +962,9 @@ def hook_model(model, image_f):
 
     return hook
 
-def vis_image(imgs, pred_masks, gt_masks, save_path, reverse = False, points = None, boxes = None):
+def vis_image(imgs, pred_masks, gt_masks, save_path, reverse = False, points = None, point_labels = None, boxes = None):
     
-    b,c,h,w = pred_masks.size()
-    dev = pred_masks.get_device()
+    b, c, h, w = pred_masks.size()
     row_num = min(b, 4)
 
     if torch.max(pred_masks) > 1 or torch.min(pred_masks) < 0:
@@ -977,54 +976,81 @@ def vis_image(imgs, pred_masks, gt_masks, save_path, reverse = False, points = N
     else:
         pred_masks = pred_masks.clone()
         gt_masks = gt_masks.clone()
-    if c == 2: # for REFUGE multi mask output
-        pred_disc, pred_cup = pred_masks[:,0,:,:].unsqueeze(1).expand(b,3,h,w), pred_masks[:,1,:,:].unsqueeze(1).expand(b,3,h,w)
-        gt_disc, gt_cup = gt_masks[:,0,:,:].unsqueeze(1).expand(b,3,h,w), gt_masks[:,1,:,:].unsqueeze(1).expand(b,3,h,w)
-        tup = (imgs[:row_num,:,:,:],pred_disc[:row_num,:,:,:], pred_cup[:row_num,:,:,:], gt_disc[:row_num,:,:,:], gt_cup[:row_num,:,:,:])
-        compose = torch.cat(tup, 0)
-        vutils.save_image(compose, fp = save_path, nrow = row_num, padding = 10)
-    elif c > 2: # for multi-class segmentation > 2 classes
-        preds = []
-        gts = []
-        for i in range(0, c):
-            pred = pred_masks[:,i,:,:].unsqueeze(1).expand(b,3,h,w)
-            preds.append(pred)
-            gt = gt_masks[:,i,:,:].unsqueeze(1).expand(b,3,h,w)
-            gts.append(gt)
-        tup = [imgs[:row_num,:,:,:]] + preds + gts
-        compose = torch.cat(tup,0)
-        vutils.save_image(compose, fp = save_path, nrow = row_num, padding = 10)
-    else:
-        imgs = torchvision.transforms.Resize((h,w))(imgs)
-        if imgs.size(1) == 1:
-            imgs = imgs[:,0,:,:].unsqueeze(1).expand(b,3,h,w)
-        pred_masks = pred_masks[:,0,:,:].unsqueeze(1).expand(b,3,h,w)
-        gt_masks = gt_masks[:,0,:,:].unsqueeze(1).expand(b,3,h,w)
-        if points != None:
+
+    # Resize imgs to match mask size for visualization
+    imgs = torchvision.transforms.Resize((h,w))(imgs)
+
+    # Ensure GT mask is 3-channel for colored points
+    if gt_masks.size(1) == 1:
+        gt_masks = gt_masks.repeat(1, 3, 1, 1) 
+    
+    if c >= 1: 
+        if points is not None:
             for i in range(b):
-                if args.thd:
-                    ps = np.round(points.cpu()/args.roi_size * args.out_size).to(dtype = torch.int)
+                pts = points[i].float()
+                
+                # ★★★ [Fix] Handle 1D tensor case (Batch, 2) -> (2,) ★★★
+                # If pts is [y, x], make it [[y, x]] so slicing works
+                if pts.dim() == 1:
+                    pts = pts.unsqueeze(0)
+
+                # Get labels if available
+                if point_labels is not None:
+                    lbls = point_labels[i]
+                    if lbls.dim() == 0: 
+                        lbls = lbls.unsqueeze(0)
                 else:
-                    ps = np.round(points.cpu()/args.image_size * args.out_size).to(dtype = torch.int)
-                # gt_masks[i,:,points[i,0]-5:points[i,0]+5,points[i,1]-5:points[i,1]+5] = torch.Tensor([255, 0, 0]).to(dtype = torch.float32, device = torch.device('cuda:' + str(dev)))
-                for p in ps[i]:
-                    gt_masks[i,0,p[0]-5:p[0]+5,p[1]-5:p[1]+5] = 0.5
-                    gt_masks[i,1,p[0]-5:p[0]+5,p[1]-5:p[1]+5] = 0.1
-                    gt_masks[i,2,p[0]-5:p[0]+5,p[1]-5:p[1]+5] = 0.4
-        if boxes is not None:
+                    lbls = torch.ones(pts.shape[0], device=pts.device)
+
+                # Convert to integer coordinates
+                py = pts[:, 0].round().long()
+                px = pts[:, 1].round().long()
+                
+                for k in range(len(py)):
+                    curr_y = torch.clamp(py[k], 0, h-1).item()
+                    curr_x = torch.clamp(px[k], 0, w-1).item()
+                    
+                    # Draw 5x5 box
+                    y_start = max(0, curr_y - 2)
+                    y_end = min(h, curr_y + 3)
+                    x_start = max(0, curr_x - 2)
+                    x_end = min(w, curr_x + 3)
+                    
+                    # Color logic
+                    if lbls[k] == 1:
+                        # Label 1: Green (Foreground)
+                        gt_masks[i, 0, y_start:y_end, x_start:x_end] = 0.0
+                        gt_masks[i, 1, y_start:y_end, x_start:x_end] = 1.0
+                        gt_masks[i, 2, y_start:y_end, x_start:x_end] = 0.0
+                    else:
+                        # Label 0: Red (Background)
+                        gt_masks[i, 0, y_start:y_end, x_start:x_end] = 1.0
+                        gt_masks[i, 1, y_start:y_end, x_start:x_end] = 0.0
+                        gt_masks[i, 2, y_start:y_end, x_start:x_end] = 0.0
+
+    if boxes is not None:
             for i in range(b):
-                # the next line causes: ValueError: Tensor uint8 expected, got torch.float32
-                # imgs[i, :] = torchvision.utils.draw_bounding_boxes(imgs[i, :], boxes[i])
-                # until TorchVision 0.19 is released (paired with Pytorch 2.4), apply this workaround:
                 img255 = (imgs[i] * 255).byte()
                 img255 = torchvision.utils.draw_bounding_boxes(img255, boxes[i].reshape(-1, 4), colors="red")
-                img01 = img255 / 255
-                # torchvision.utils.save_image(img01, save_path + "_boxes.png")
-                imgs[i, :] = img01
-        tup = (imgs[:row_num,:,:,:],pred_masks[:row_num,:,:,:], gt_masks[:row_num,:,:,:])
-        # compose = torch.cat((imgs[:row_num,:,:,:],pred_disc[:row_num,:,:,:], pred_cup[:row_num,:,:,:], gt_disc[:row_num,:,:,:], gt_cup[:row_num,:,:,:]),0)
-        compose = torch.cat(tup,0)
-        vutils.save_image(compose, fp = save_path, nrow = row_num, padding = 10)
+                imgs[i, :] = img255 / 255
+
+    # Concatenate images
+    if c == 2:
+        pred_disc, pred_cup = pred_masks[:,0,:,:].unsqueeze(1).expand(b,3,h,w), pred_masks[:,1,:,:].unsqueeze(1).expand(b,3,h,w)
+        # Use clone to show dots on GT only once per row group if desired, or duplicate
+        tup = (imgs[:row_num,:,:,:], pred_disc[:row_num,:,:,:], pred_cup[:row_num,:,:,:], gt_masks[:row_num,:,:,:])
+    elif c > 2:
+        preds = [imgs[:row_num,:,:,:]]
+        for idx in range(c):
+             preds.append(pred_masks[:,idx,:,:].unsqueeze(1).expand(b,3,h,w))
+        preds.append(gt_masks[:row_num,:,:,:])
+        tup = tuple(preds)
+    else:
+        # Standard 1 class
+        tup = (imgs[:row_num,:,:,:], pred_masks[:row_num,:,:,:].expand(b,3,h,w), gt_masks[:row_num,:,:,:])
+
+    compose = torch.cat(tup, 0)
+    vutils.save_image(compose, fp = save_path, nrow = row_num, padding = 10)
 
     return
 
@@ -1178,43 +1204,103 @@ def random_click(mask, point_labels = 1):
     indices = indices[:, ::-1].copy()
     return point_labels, indices[np.random.randint(len(indices))]
 
-
 def generate_click_prompt(img, msk, pt_label = 1):
-    # return: prompt, prompt mask
+    # return: img, prompt, prompt mask, labels
     pt_list = []
     msk_list = []
+    label_list = [] 
+    
+    # ★★★ 1. 自動偵測並處理輸入維度 (2D/3D 相容) ★★★
+    # 如果輸入是 4維 [B, C, H, W]，就假裝它是深度為 1 的 3D [B, C, H, W, 1]
+    is_4d = False
+    if msk.dim() == 4:
+        msk = msk.unsqueeze(-1) # 變成 [B, C, H, W, 1]
+        img = img.unsqueeze(-1)
+        is_4d = True
+
+    # 現在無論輸入原本是 2D 還是 3D，這裡都是 5維，所以 unpack 不會報錯
     b, c, h, w, d = msk.size()
-    msk = msk[:,0,:,:,:]
+    msk = msk[:,0,:,:,:] # [B, H, W, D]
+    
+    # Kernel for neighbor filtering
+    kernel = torch.ones((1, 1, 3, 3), device=msk.device)
+
     for i in range(d):
         pt_list_s = []
         msk_list_s = []
+        label_list_s = [] 
+        
         for j in range(b):
-            msk_s = msk[j,:,:,i]
-            indices = torch.nonzero(msk_s)
+            msk_s = msk[j,:,:,i] # [H, W]
+            
+            # --- Neighbor Filtering ---
+            msk_tensor = msk_s.unsqueeze(0).unsqueeze(0)
+            neighbor_count = F.conv2d(msk_tensor, kernel, padding=1).squeeze()
+            valid_mask = (msk_s == 1) & (neighbor_count >= 3) # At least 2 neighbors + self
+            indices = torch.nonzero(valid_mask)
+            
             if indices.size(0) == 0:
-                # generate a random array between [0-h, 0-h]:
-                random_index = torch.randint(0, h, (2,)).to(device = msk.device)
+                indices = torch.nonzero(msk_s) # Fallback
+
+            if indices.size(0) == 0:
+                # Case A: Background
+                rand_h = torch.randint(0, h, (1,)).item()
+                rand_w = torch.randint(0, w, (1,)).item()
+                random_index = torch.tensor([rand_h, rand_w]).to(device=msk.device)
                 new_s = msk_s
+                current_label = 0 
             else:
+                # Case B: Foreground
                 random_index = random.choice(indices)
                 label = msk_s[random_index[0], random_index[1]]
-                new_s = torch.zeros_like(msk_s)
-                # convert bool tensor to int
                 new_s = (msk_s == label).to(dtype = torch.float)
-                # new_s[msk_s == label] = 1
+                current_label = 1
+                '''
+                # ★★★ ULTRA DEBUG: Check the pixel value ★★★
+                picked_y, picked_x = random_index[0].item(), random_index[1].item()
+                pixel_val = msk_s[picked_y, picked_x].item()
+                
+                # 如果這是第一個 Batch 的第一張圖，印出詳細資訊
+                if j == 0 and i == 0: 
+                    print(f"\n[GENERATE PROMPT DEBUG] Image {j} Slice {i}")
+                    print(f"  - Selected Point (Y, X): ({picked_y}, {picked_x})")
+                    print(f"  - Pixel Value at Mask:   {pixel_val} (Should be 1.0)")
+                    print(f"  - Mask Size:             {msk_s.shape}")
+                    
+                    # 畫出 5x5 局部區域的數值
+                    print("  - Local Area (5x5):")
+                    y_start, y_end = max(0, picked_y-2), min(h, picked_y+3)
+                    x_start, x_end = max(0, picked_x-2), min(w, picked_x+3)
+                    local_patch = msk_s[y_start:y_end, x_start:x_end].cpu().numpy()
+                    print(local_patch)
+                '''
             pt_list_s.append(random_index)
             msk_list_s.append(new_s)
+            label_list_s.append(current_label)
+        
         pts = torch.stack(pt_list_s, dim=0)
         msks = torch.stack(msk_list_s, dim=0)
+        lbls = torch.tensor(label_list_s, device=msk.device)
+        
         pt_list.append(pts)
         msk_list.append(msks)
+        label_list.append(lbls)
+    
     pt = torch.stack(pt_list, dim=-1)
     msk = torch.stack(msk_list, dim=-1)
+    labels = torch.stack(label_list, dim=-1)
 
     msk = msk.unsqueeze(1)
 
-    return img, pt, msk #[b, 2, d], [b, c, h, w, d]
+    # ★★★ 2. 如果原本是 4維，要還原維度 (Restore Dimensions) ★★★
+    if is_4d:
+        img = img.squeeze(-1)     # [B, C, H, W]
+        pt = pt.squeeze(-1)       # [B, 2]
+        msk = msk.squeeze(-1)     # [B, 1, H, W]
+        # labels 保持 [B, 1] 比較安全，或者也可以 squeeze 變成 [B]
+        # 這裡不 squeeze labels 是為了保持與 3D 輸出格式的一致性
 
+    return img, pt, msk, labels
 
 def random_box(multi_rater):
     max_value = torch.max(multi_rater[:,0,:,:], dim=0)[0]
@@ -1236,3 +1322,4 @@ def random_box(multi_rater):
     y_max = random.choice(np.arange(y_max-10,y_max+11))
 
     return x_min, x_max, y_min, y_max
+

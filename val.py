@@ -1,5 +1,4 @@
-# train.py
-#!/usr/bin/env	python3
+#!/usr/bin/env  python3
 
 """ valuate network using pytorch
     Junde Wu
@@ -50,11 +49,23 @@ def main():
     checkpoint_file = os.path.join(args.weights)
     assert os.path.exists(checkpoint_file)
     loc = 'cuda:{}'.format(args.gpu_device)
+    
+    # 載入權重檔案
     checkpoint = torch.load(checkpoint_file, map_location=loc)
-    start_epoch = checkpoint['epoch']
-    best_tol = checkpoint['best_tol']
 
-    state_dict = checkpoint['state_dict']
+    # --- 核心相容性修改開始 ---
+    # 使用 .get() 抓取，如果找不到 key 就不會報錯 KeyError
+    start_epoch = checkpoint.get('epoch', 0) if isinstance(checkpoint, dict) else 0
+    best_tol = checkpoint.get('best_tol', 1e4) if isinstance(checkpoint, dict) else 1e4
+
+    # 自動判斷結構：是包含多個標籤的字典，還是純參數字典
+    if isinstance(checkpoint, dict) and 'state_dict' in checkpoint:
+        state_dict = checkpoint['state_dict']
+    else:
+        # 如果檔案本身就是參數字典 (例如 KiTS23 的 pth)
+        state_dict = checkpoint
+    # --- 核心相容性修改結束 ---
+
     if args.distributed != 'none':
         from collections import OrderedDict
         new_state_dict = OrderedDict()
@@ -62,19 +73,12 @@ def main():
             # name = k[7:] # remove `module.`
             name = 'module.' + k
             new_state_dict[name] = v
-        # load params
     else:
         new_state_dict = state_dict
 
+    # 載入參數到網路中
     net.load_state_dict(new_state_dict)
-
-    # args.path_helper = checkpoint['path_helper']
-    # logger = create_logger(args.path_helper['log_path'])
-    # print(f'=> loaded checkpoint {checkpoint_file} (epoch {start_epoch})')
-
-    # args.path_helper = set_log_dir('logs', args.exp_name)
-    # logger = create_logger(args.path_helper['log_path'])
-    # logger.info(args)
+    print(f'=> Successfully loaded checkpoint (epoch {start_epoch})')
 
     args.path_helper = set_log_dir('logs', args.exp_name)
     logger = create_logger(args.path_helper['log_path'])

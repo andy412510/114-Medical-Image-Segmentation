@@ -286,15 +286,16 @@ def add_decomposed_rel_pos(
     return attn
 
 def closest_numbers(target):
-    a = int(target ** 0.5)
-    b = a + 1
-    while True:
-        if a * b == target:
-            return (a, b)
-        elif a * b < target:
-            b += 1
-        else:
-            a -= 1
+    # 原本的代碼可能在 target 很大或特殊時會死迴圈
+    # 使用這個版本確保一定會回傳結果
+    import math
+    a = int(math.sqrt(target))
+    while a > 0:
+        if target % a == 0:
+            b = target // a
+            return a, b
+        a -= 1
+    return 1, target
 
 
 class MLPBlock(nn.Module):

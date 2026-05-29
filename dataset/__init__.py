@@ -4,7 +4,7 @@ from torch.utils.data import DataLoader, random_split
 from torch.utils.data.sampler import SubsetRandomSampler
 
 from utils import *
-
+from .btcv import BTCV
 from .atlas import Atlas
 from .brat import Brat
 from .ddti import DDTI
@@ -51,7 +51,20 @@ def get_dataloader(args):
         nice_train_loader = DataLoader(isic_train_dataset, batch_size=args.b, shuffle=True, num_workers=8, pin_memory=True)
         nice_test_loader = DataLoader(isic_test_dataset, batch_size=args.b, shuffle=False, num_workers=8, pin_memory=True)
         '''end'''
+    elif args.dataset == 'btcv':
+        '''btcv data'''
+        dataset_train = BTCV(args, data_path=args.data_path,
+                             transform=transform_train,
+                             transform_msk=transform_train_seg,
+                             mode='Training')
+        dataset_test = BTCV(args, data_path=args.data_path,
+                            transform=transform_test,
+                            transform_msk=transform_test_seg,
+                            mode='Validation')
 
+        nice_train_loader = DataLoader(dataset_train, batch_size=args.b, shuffle=True, num_workers=8, pin_memory=True)
+        nice_test_loader = DataLoader(dataset_test, batch_size=args.b, shuffle=False, num_workers=8, pin_memory=True)
+        '''end'''
     elif args.dataset == 'decathlon':
         nice_train_loader, nice_test_loader, transform_train, transform_val, train_list, val_list = get_decath_loader(args)
 
